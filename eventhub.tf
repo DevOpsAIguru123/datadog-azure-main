@@ -9,14 +9,15 @@ resource "azurerm_eventhub_namespace" "event_hub_namespace" {
   sku                         = "Standard"
   capacity                    = 1
   
-  # Disable public network access for enhanced security
+  # Network configuration with secured access
   public_network_access_enabled = false
-  network_rulesets {
-    default_action = "Deny"
-    trusted_service_access_enabled = true
-    virtual_network_rule {
-    }
-  }
+  # network_rulesets {
+  #   default_action = "Deny"
+  #   trusted_service_access_enabled = true
+  #   virtual_network_rule {
+  #     subnet_id = azurerm_subnet.function_app_subnet.id
+  #   }
+  # }
   
   tags = local.common_tags
 }

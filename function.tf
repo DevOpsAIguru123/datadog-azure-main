@@ -18,6 +18,12 @@ resource "azurerm_windows_function_app" "function_app" {
   resource_group_name = azurerm_resource_group.resource_group.name
   location            = var.location
   service_plan_id     = azurerm_service_plan.app_service_plan.id
+  
+  # Has Key Vault reference, so depends on role assignment
+  depends_on = [
+    azurerm_role_assignment.function_keyvault_role
+  ]
+  
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE"                    = "1",
     "FUNCTIONS_WORKER_RUNTIME"                    = "node",
@@ -25,18 +31,21 @@ resource "azurerm_windows_function_app" "function_app" {
     "WEBSITE_NODE_DEFAULT_VERSION"                = "~20",
     "EventHubConnection__credential"              = "managedidentity",
     "EventHubConnection__fullyQualifiedNamespace" = format("%s.servicebus.windows.net", azurerm_eventhub_namespace.event_hub_namespace.name),
-    "DD_API_KEY"                                  = var.datadog_api_key,
+    "DD_API_KEY"                                  = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.key_vault.name};SecretName=datadog-api-key)",
     "DD_SITE"                                     = var.datadog_site,
     # Application Insights settings
     "APPLICATIONINSIGHTS_CONNECTION_STRING"       = azurerm_application_insights.app_insights.connection_string,
     "APPINSIGHTS_INSTRUMENTATIONKEY"              = azurerm_application_insights.app_insights.instrumentation_key,
-    "ApplicationInsightsAgent_EXTENSION_VERSION"  = "~3"
+    "ApplicationInsightsAgent_EXTENSION_VERSION"  = "~3",
+    # User assigned managed identity client ID
+    "AZURE_CLIENT_ID"                             = azurerm_user_assigned_identity.function_identity.client_id
   }
   site_config {}
   storage_account_name          = azurerm_storage_account.storage_account.name
   storage_uses_managed_identity = true
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.function_identity.id]
   }
   public_network_access_enabled = false
   virtual_network_subnet_id     = azurerm_subnet.function_app_subnet.id
@@ -77,14 +86,14 @@ resource "azurerm_private_endpoint" "function_endpoint" {
 resource "azurerm_role_assignment" "storage_role_assignment" {
   scope                = azurerm_storage_account.storage_account.id
   role_definition_name = "Storage Blob Data Owner"
-  principal_id         = azurerm_windows_function_app.function_app.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.function_identity.principal_id
 }
 
 # Role Assignment for event hub
 resource "azurerm_role_assignment" "eventhub_role_assignment" {
   scope                = azurerm_eventhub_namespace.event_hub_namespace.id
   role_definition_name = "Azure Event Hubs Data Owner"
-  principal_id         = azurerm_windows_function_app.function_app.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.function_identity.principal_id
 }
 
 #######################
@@ -128,7 +137,9 @@ resource "null_resource" "function_app_publish" {
   depends_on = [
     data.archive_file.functions_zip, 
     azurerm_role_assignment.storage_role_assignment, 
-    azurerm_role_assignment.eventhub_role_assignment
+    azurerm_role_assignment.eventhub_role_assignment,
+    azurerm_windows_function_app.function_app,
+    azurerm_user_assigned_identity.function_identity
   ]
   
   triggers = {

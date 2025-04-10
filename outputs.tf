@@ -82,4 +82,34 @@ output "app_insights_id" {
 output "app_insights_app_id" {
   description = "The App ID of the Application Insights instance"
   value       = azurerm_application_insights.app_insights.app_id
+}
+
+output "key_vault_id" {
+  description = "The ID of the Key Vault"
+  value       = azurerm_key_vault.key_vault.id
+}
+
+output "key_vault_name" {
+  description = "The name of the Key Vault"
+  value       = azurerm_key_vault.key_vault.name
+}
+
+output "key_vault_uri" {
+  description = "The URI of the Key Vault"
+  value       = azurerm_key_vault.key_vault.vault_uri
+}
+
+output "user_assigned_identity_id" {
+  description = "The ID of the User Assigned Managed Identity"
+  value       = azurerm_user_assigned_identity.function_identity.id
+}
+
+output "user_assigned_identity_principal_id" {
+  description = "The Principal ID of the User Assigned Managed Identity"
+  value       = azurerm_user_assigned_identity.function_identity.principal_id
+}
+
+output "user_assigned_identity_client_id" {
+  description = "The Client ID of the User Assigned Managed Identity"
+  value       = azurerm_user_assigned_identity.function_identity.client_id
 } 
